@@ -1,0 +1,8 @@
+# Only application sources and build-time tests are needed in the build context.
+**
+!Dockerfile
+!package.json
+!src/
+!src/**
+!test/
+!test/**
