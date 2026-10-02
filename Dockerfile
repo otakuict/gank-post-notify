@@ -22,9 +22,9 @@ USER node:node
 
 STOPSIGNAL SIGTERM
 
-EXPOSE 3000
+EXPOSE 3005
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD node -e "fetch('http://127.0.0.1:3000/health', { signal: AbortSignal.timeout(4000) }).then(async r => { const body = await r.json(); process.exit(r.ok && body.profiles?.length > 0 && body.profiles.every(p => p.initialized) ? 0 : 1); }).catch(() => process.exit(1))"
+    CMD node -e "fetch('http://127.0.0.1:3005/health', { signal: AbortSignal.timeout(4000) }).then(async r => { const body = await r.json(); process.exit(r.ok && body.profiles?.length > 0 && body.profiles.every(p => p.initialized) ? 0 : 1); }).catch(() => process.exit(1))"
 
 CMD ["node", "src/server.js"]

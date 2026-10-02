@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 try {
   $result = Invoke-RestMethod `
     -Method Post `
-    -Uri 'http://127.0.0.1:3000/api/shutdown' `
+    -Uri 'http://127.0.0.1:3005/api/shutdown' `
     -TimeoutSec 5
 
   if (-not $result.ok) {
@@ -15,7 +15,7 @@ try {
   do {
     Start-Sleep -Milliseconds 250
     try {
-      Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:3000/health' -TimeoutSec 1 | Out-Null
+      Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:3005/health' -TimeoutSec 1 | Out-Null
     } catch {
       Write-Host 'Gank Post Notify stopped successfully.'
       exit 0
@@ -25,7 +25,7 @@ try {
   throw 'Timed out while waiting for the service to stop.'
 } catch {
   try {
-    $health = Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:3000/health' -TimeoutSec 2
+    $health = Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:3005/health' -TimeoutSec 2
     if ($health.service -eq 'gank-post-notify') {
       Write-Host "Could not stop the service: $($_.Exception.Message)"
       exit 1
@@ -35,6 +35,6 @@ try {
     exit 0
   }
 
-  Write-Host 'Port 3000 belongs to another application; it was not stopped.'
+  Write-Host 'Port 3005 belongs to another application; it was not stopped.'
   exit 2
 }

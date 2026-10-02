@@ -5,7 +5,7 @@ image="${1:?Pass the image tag to deploy}"
 container=gank-post-notify
 backup=gank-post-notify-previous
 state_volume=gank-post-notify-state
-host_port=3000
+host_port=3005
 had_previous=false
 new_started=false
 committed=false
@@ -65,7 +65,7 @@ docker run -d \
   --cap-drop ALL \
   --security-opt no-new-privileges:true \
   --log-driver json-file --log-opt max-size=10m --log-opt max-file=3 \
-  -p "127.0.0.1:$host_port:3000" \
+  -p "127.0.0.1:$host_port:3005" \
   "$image" >/dev/null
 
 for attempt in {1..60}; do

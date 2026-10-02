@@ -23,13 +23,13 @@ if "%GANK_STATUS_CODE%"=="0" (
 
 if "%GANK_STATUS_CODE%"=="2" (
   echo.
-  echo [ERROR] Port 3000 is occupied by another application.
+  echo [ERROR] Port 3005 is occupied by another application.
   pause
   exit /b 2
 )
 
 echo Starting Gank Post Notify...
-echo Status URL: http://localhost:3000/api/status
+echo Status URL: http://localhost:3005/api/status
 echo Press Ctrl+C to stop.
 echo.
 

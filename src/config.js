@@ -7,7 +7,7 @@ export const CONFIG = Object.freeze({
     'keqingdata', 'kdatastudio', 'idolxdata', 'idollove', 'datacoffeeshop',
   ]),
   intervalMs: 60_000,
-  port: 3000,
+  port: 3005,
   webhookUrl: '',
   webhookType: 'generic',
   notifyOnFirstRun: false,

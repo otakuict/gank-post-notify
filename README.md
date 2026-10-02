@@ -17,7 +17,7 @@ Backend Node.js สำหรับตรวจโพสต์ใหม่ขอ�
 
 บน Windows สามารถดับเบิลคลิก `post-noti.bat` เพื่อเปิด service ได้ทันที หรือใช้คำสั่งด้านล่าง:
 
-- `post-noti.bat` — เริ่ม service และป้องกันการเปิดซ้ำบนพอร์ต 3000
+- `post-noti.bat` — เริ่ม service และป้องกันการเปิดซ้ำบนพอร์ต 3005
 - `stop-noti.bat` — หยุด service อย่างถูกต้อง
 - `restart-noti.bat` — หยุดแล้วเริ่มใหม่ ใช้ไฟล์นี้หลังแก้ `.env` หรืออัปเดตโค้ด
 
@@ -99,8 +99,8 @@ TELEGRAM_CHAT_ID=123456789
 ตัวอย่าง:
 
 ```bash
-curl http://localhost:3000/api/status
-curl -X POST http://localhost:3000/api/check
+curl http://localhost:3005/api/status
+curl -X POST http://localhost:3005/api/check
 ```
 
 ## ตั้งค่าหลัก
@@ -111,7 +111,7 @@ curl -X POST http://localhost:3000/api/check
 |---|---|---|
 | `profiles` | รายชื่อ 10 บัญชีเดิม | เพิ่ม/ลบบัญชีใน array |
 | `intervalMs` | `60000` | ตรวจทุก 1 นาที |
-| `port` | `3000` | HTTP port |
+| `port` | `3005` | HTTP port |
 | `webhookUrl` | ว่าง | URL รับ notification |
 | `webhookType` | `generic` | generic หรือ discord |
 | `notifyOnFirstRun` | `false` | ไม่แจ้งโพสต์เก่าตอนเริ่ม |
@@ -135,7 +135,7 @@ docker compose logs -f --tail=100
 
 Image ใช้ Node.js 24 และรันด้วยผู้ใช้ `node` ที่ไม่ใช่ root โดยไม่ใส่ `.env`, token หรือข้อมูลใน `data/` ลงใน image ตัวโปรแกรมรันโดยตรงด้วย `node` เพื่อรับสัญญาณหยุดจาก Docker
 
-Compose ส่งเฉพาะ Telegram สองค่าจาก `.env` เข้า container โดยพอร์ตคงที่ `127.0.0.1:3000:3000` เพราะ HTTP API ไม่มี authentication ทดสอบได้ที่ `http://localhost:3000/health`
+Compose ส่งเฉพาะ Telegram สองค่าจาก `.env` เข้า container โดยพอร์ตคงที่ `127.0.0.1:3005:3005` เพราะ HTTP API ไม่มี authentication ทดสอบได้ที่ `http://localhost:3005/health`
 
 State เก็บใน named volume `state` และยังอยู่หลัง recreate container; volume ใหม่จะเริ่ม baseline ใหม่ ไม่ได้นำข้อมูลจากโฟลเดอร์ `data/` บน host มาใช้โดยอัตโนมัติ รันเพียงหนึ่ง instance ต่อ volume เพื่อไม่ให้การเขียน state และการแจ้งเตือนชนกัน หลีกเลี่ยง `docker compose down -v` หากต้องการเก็บ state
 
@@ -147,7 +147,7 @@ Health check เรียก `/health` ทุก 30 วินาที และ
 
 ```powershell
 docker build --pull -t gank-post-notify:production .
-docker run -d --name gank-post-notify --init --restart unless-stopped --env-file .env -p 127.0.0.1:3000:3000 --mount source=gank-post-notify-state,target=/app/data --read-only --cap-drop ALL --security-opt no-new-privileges:true --log-opt max-size=10m --log-opt max-file=3 gank-post-notify:production
+docker run -d --name gank-post-notify --init --restart unless-stopped --env-file .env -p 127.0.0.1:3005:3005 --mount source=gank-post-notify-state,target=/app/data --read-only --cap-drop ALL --security-opt no-new-privileges:true --log-opt max-size=10m --log-opt max-file=3 gank-post-notify:production
 ```
 
 ## CI/CD: Docker Hub → Ubuntu server
@@ -173,7 +173,7 @@ Workflow อยู่ที่ `.github/workflows/cicd.yml` ใช้รูป�
 
 เพิ่ม Telegram สองค่าเป็น GitHub Repository Secrets แล้ว push เข้า `main` หรือกด Run workflow บน `main` โดยไม่ต้องสร้าง `.env` บน server Workflow ส่ง secrets เฉพาะขั้นตอน deploy และ Docker รับผ่าน environment โดยไม่บันทึกลง image หรือไฟล์ deploy หาก secret ใดหายไป script จะหยุดก่อนแก้ไข container เดิม
 
-Deploy script ใช้ container `gank-post-notify`, named volume `gank-post-notify-state` และเปิดพอร์ตเฉพาะ `127.0.0.1:3000` รันแบบ non-root, read-only filesystem, ปิด Linux capabilities และจำกัดขนาด log มีช่วงหยุดบริการระหว่างเปลี่ยน container
+Deploy script ใช้ container `gank-post-notify`, named volume `gank-post-notify-state` และเปิดพอร์ตเฉพาะ `127.0.0.1:3005` รันแบบ non-root, read-only filesystem, ปิด Linux capabilities และจำกัดขนาด log มีช่วงหยุดบริการระหว่างเปลี่ยน container
 
 Docker health check ต้องผ่านการตรวจ creator สำเร็จอย่างน้อยหนึ่งครั้งสำหรับทุกบัญชีก่อนถือว่า healthy; หากไม่พร้อมภายในประมาณ 180 วินาที script จะลบ container ใหม่และเริ่ม container เดิมกลับมา โดยใช้ state volume เดิม การ rollback ไม่ได้ย้อนข้อมูลใน volume และปัญหาจาก Gank/notification อาจทำให้ deploy ไม่ผ่านได้ หากมี container `gank-post-notify-previous` ค้างจากการ deploy ที่ถูกขัดจังหวะ ให้ตรวจและกู้คืนด้วยตนเองก่อน deploy ต่อ
 
@@ -182,7 +182,7 @@ Docker health check ต้องผ่านการตรวจ creator สำ
 ```bash
 docker ps --filter name=gank-post-notify
 docker logs --tail=100 gank-post-notify
-curl --fail http://127.0.0.1:3000/health
+curl --fail http://127.0.0.1:3005/health
 ```
 
 Deploy หรือ rollback ด้วย image tag ที่เคย push แล้วได้ด้วย (ต้อง export `TELEGRAM_BOT_TOKEN` และ `TELEGRAM_CHAT_ID` ใน shell ก่อน):
