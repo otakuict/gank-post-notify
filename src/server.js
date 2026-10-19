@@ -33,15 +33,37 @@ function statuses() {
   return [...checkers.values()].map((checker) => checker.getStatus());
 }
 
-async function checkAll() {
+let runningCheckAll = null;
+
+async function performCheckAll() {
   const entries = [...checkers.entries()];
-  const results = await Promise.allSettled(entries.map(([, checker]) => checker.check()));
+  const results = new Array(entries.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(3, entries.length) }, async () => {
+    while (next < entries.length) {
+      const index = next++;
+      try {
+        results[index] = { status: 'fulfilled', value: await entries[index][1].check() };
+      } catch (reason) {
+        results[index] = { status: 'rejected', reason };
+      }
+    }
+  }));
   return results.map((result, index) => ({
     nickname: entries[index][0],
     ok: result.status === 'fulfilled',
     status: result.status === 'fulfilled' ? result.value : entries[index][1].getStatus(),
     ...(result.status === 'rejected' ? { error: result.reason.message } : {}),
   }));
+}
+
+function checkAll() {
+  if (!runningCheckAll) {
+    runningCheckAll = performCheckAll().finally(() => {
+      runningCheckAll = null;
+    });
+  }
+  return runningCheckAll;
 }
 
 function sendJson(response, statusCode, body) {

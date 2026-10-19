@@ -39,3 +39,53 @@ test('client treats a null posts response as an empty creator feed', async () =>
   });
   assert.deepEqual(await client.getLatestPosts('creator-without-posts'), []);
 });
+
+test('client retries a transient creator request failure', async () => {
+  let attempts = 0;
+  const client = createGankClient({
+    fetchImpl: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new TypeError('fetch failed');
+      return { ok: true, json: async () => ({ data: { id: 'creator-1' } }) };
+    },
+  });
+
+  assert.equal((await client.getCreator('baemonfan')).id, 'creator-1');
+  assert.equal(attempts, 2);
+});
+
+test('client retries HTTP 429 once', async () => {
+  let attempts = 0;
+  const client = createGankClient({
+    fetchImpl: async () => {
+      attempts += 1;
+      if (attempts === 1) return { ok: false, status: 429 };
+      return { ok: true, json: async () => ({ data: [] }) };
+    },
+  });
+
+  assert.deepEqual(await client.getLatestPosts('creator-1'), []);
+  assert.equal(attempts, 2);
+});
+
+test('client identifies a persistent network error and does not retry HTTP 404', async () => {
+  let attempts = 0;
+  const client = createGankClient({
+    fetchImpl: async () => {
+      attempts += 1;
+      throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } });
+    },
+  });
+
+  await assert.rejects(client.getLatestPosts('creator-1'), /posts lookup request failed: fetch failed \(ECONNRESET\)/);
+  assert.equal(attempts, 2);
+
+  const missing = createGankClient({
+    fetchImpl: async () => {
+      attempts += 1;
+      return { ok: false, status: 404 };
+    },
+  });
+  await assert.rejects(missing.getCreator('missing'), /creator lookup returned HTTP 404/);
+  assert.equal(attempts, 3);
+});

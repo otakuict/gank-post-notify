@@ -65,3 +65,23 @@ test('a later run notifies unseen posts before saving state', async () => {
   assert.deepEqual(calls, ['notify:new', 'save']);
   assert.equal(status.newPostsOnLastCheck[0].id, 'new');
 });
+
+test('failed checks identify the creator and stage in status and logs', async () => {
+  const errors = [];
+  const checker = createChecker({
+    nickname: 'idollove',
+    postsPerPage: 20,
+    notifyOnFirstRun: false,
+    client: {
+      getCreator: async () => ({ id: 'creator-1', nickname: 'idollove' }),
+      getLatestPosts: async () => { throw new Error('fetch failed'); },
+    },
+    store: { read: async () => null },
+    notifier: { notify: async () => {} },
+    logger: { info() {}, error: (message) => errors.push(message) },
+  });
+
+  await assert.rejects(checker.check(), /fetch failed/);
+  assert.equal(checker.getStatus().lastError.stage, 'posts lookup');
+  assert.match(errors[0], /check failed @idollove \(posts lookup\): fetch failed/);
+});

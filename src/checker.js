@@ -29,6 +29,7 @@ export function createChecker({
 
   async function performCheck() {
     const checkStartedAt = new Date().toISOString();
+    let stage = 'creator lookup';
     status = {
       ...status,
       running: true,
@@ -36,10 +37,10 @@ export function createChecker({
       lastCheckedAtUtc7: formatUtc7(checkStartedAt),
     };
     try {
-      const [creator, previousState] = await Promise.all([
-        client.getCreator(nickname),
-        store.read(),
-      ]);
+      const creator = await client.getCreator(nickname);
+      stage = 'state read';
+      const previousState = await store.read();
+      stage = 'posts lookup';
       const posts = await client.getLatestPosts(creator.id, postsPerPage);
       const isFirstRun = previousState === null;
       const newPosts = isFirstRun && !notifyOnFirstRun
@@ -47,9 +48,11 @@ export function createChecker({
         : findNewPosts(posts, previousState?.seenPostIds || []);
 
       // Notify before committing the new state so a failed webhook is retried.
+      stage = 'notification';
       await notifier.notify({ creator, posts: newPosts });
 
       const now = new Date().toISOString();
+      stage = 'state write';
       await store.write({
         creator: { id: creator.id, nickname: creator.nickname },
         seenPostIds: posts.map((post) => post.id),
@@ -93,11 +96,12 @@ export function createChecker({
         running: false,
         lastError: {
           message: error.message,
+          stage,
           at: errorAt,
           atUtc7: formatUtc7(errorAt),
         },
       };
-      logger.error(`[${status.lastError.atUtc7}] check failed: ${error.message}`);
+      logger.error(`[${status.lastError.atUtc7}] check failed @${nickname} (${stage}): ${error.message}`);
       throw error;
     }
   }

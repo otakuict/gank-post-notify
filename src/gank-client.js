@@ -26,26 +26,45 @@ export function getProfileNickname(value) {
   return trimmed;
 }
 
-async function getJson(url, { fetchImpl, timeoutMs }) {
-  const response = await fetchImpl(url, {
-    headers: {
-      accept: 'application/json',
-      'user-agent': 'gank-post-notify/1.0',
-    },
-    signal: AbortSignal.timeout(timeoutMs),
-  });
+async function getJson(url, { fetchImpl, timeoutMs, operation }) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetchImpl(url, {
+        headers: {
+          accept: 'application/json',
+          'user-agent': 'gank-post-notify/1.0',
+        },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
 
-  if (!response.ok) {
-    throw new Error(`Gank API returned HTTP ${response.status}`);
+      if (!response.ok) {
+        if (attempt === 0 && (response.status === 429 || response.status >= 500)) {
+          await response.body?.cancel();
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          continue;
+        }
+        throw new Error(`Gank API ${operation} returned HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      if (attempt === 0 && (error instanceof TypeError || error.name === 'TimeoutError')) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        continue;
+      }
+      if (error instanceof TypeError || error.name === 'TimeoutError') {
+        const code = error.cause?.code;
+        throw new Error(`Gank API ${operation} request failed: ${error.message}${code ? ` (${code})` : ''}`, { cause: error });
+      }
+      throw error;
+    }
   }
-  return response.json();
 }
 
 export function createGankClient({ fetchImpl = fetch, timeoutMs = 15_000 } = {}) {
   return {
     async getCreator(nickname) {
       const url = `${API_BASE_URL}/users/nickname/${encodeURIComponent(nickname)}`;
-      const body = await getJson(url, { fetchImpl, timeoutMs });
+      const body = await getJson(url, { fetchImpl, timeoutMs, operation: 'creator lookup' });
       if (!body?.data?.id) throw new Error(`Creator ${nickname} was not found`);
       return body.data;
     },
@@ -60,6 +79,7 @@ export function createGankClient({ fetchImpl = fetch, timeoutMs = 15_000 } = {})
       const body = await getJson(`${API_BASE_URL}/posts?${params}`, {
         fetchImpl,
         timeoutMs,
+        operation: 'posts lookup',
       });
       if (body?.data === null) return [];
       if (!Array.isArray(body?.data)) {
