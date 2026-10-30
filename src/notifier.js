@@ -5,20 +5,29 @@ function postUrl(post) {
   return `https://ganknow.com/post/${post.id}`;
 }
 
-function telegramText(creator, posts) {
+function listingUrl(listing) {
+  return `https://ganknow.com/p/${encodeURIComponent(listing.slug)}`;
+}
+
+function telegramText(creator, posts, listings) {
   const lines = [
-    `🔔 มีโพสต์ใหม่จาก ${creator.nickname} จำนวน ${posts.length} โพสต์`,
+    `🔔 ${creator.nickname}: โพสต์ใหม่ ${posts.length}, listing ใหม่ ${listings.length}`,
     '',
   ];
 
-  for (const [index, post] of posts.slice(0, 10).entries()) {
-    lines.push(`${index + 1}. ${post.title || '(ไม่มีชื่อโพสต์)'}`);
-    const localTime = formatUtc7(post.createdAt);
+  const items = [
+    ...posts.map((post) => ({ type: 'โพสต์', title: post.title, createdAt: post.createdAt, url: postUrl(post) })),
+    ...listings.map((listing) => ({ type: 'listing', title: listing.name, createdAt: listing.createdAt, url: listingUrl(listing) })),
+  ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  for (const [index, item] of items.slice(0, 10).entries()) {
+    lines.push(`${index + 1}. [${item.type}] ${item.title || '(ไม่มีชื่อ)'}`);
+    const localTime = formatUtc7(item.createdAt);
     if (localTime) lines.push(`เวลา: ${localTime}`);
-    lines.push(postUrl(post));
-    if (index < Math.min(posts.length, 10) - 1) lines.push('');
+    lines.push(item.url);
+    if (index < Math.min(items.length, 10) - 1) lines.push('');
   }
-  if (posts.length > 10) lines.push('', `และอีก ${posts.length - 10} โพสต์`);
+  if (items.length > 10) lines.push('', `และอีก ${items.length - 10} รายการ`);
 
   // Telegram sendMessage accepts at most 4,096 characters.
   return lines.join('\n').slice(0, 4_096);
@@ -81,11 +90,11 @@ export function createNotifier({
   timeoutMs = 15_000,
 }) {
   return {
-    async notify({ creator, posts }) {
-      if (posts.length === 0) return { sent: false, targets: [] };
+    async notify({ creator, posts = [], listings = [] }) {
+      if (posts.length === 0 && listings.length === 0) return { sent: false, targets: [] };
 
       const event = {
-        event: 'gank.new_posts',
+        event: listings.length ? (posts.length ? 'gank.new_content' : 'gank.new_listings') : 'gank.new_posts',
         creator: {
           id: creator.id,
           nickname: creator.nickname,
@@ -98,6 +107,13 @@ export function createNotifier({
           createdAtUtc7: formatUtc7(post.createdAt),
           url: postUrl(post),
         })),
+        listings: listings.map((listing) => ({
+          id: listing.id,
+          title: listing.name || '(ไม่มีชื่อ listing)',
+          createdAt: listing.createdAt,
+          createdAtUtc7: formatUtc7(listing.createdAt),
+          url: listingUrl(listing),
+        })),
         detectedAt: new Date().toISOString(),
       };
 
@@ -105,13 +121,11 @@ export function createNotifier({
       if (webhookUrl) {
         const payload = webhookType === 'discord'
           ? {
-              content: `มีโพสต์ใหม่จาก **${creator.nickname}** จำนวน ${posts.length} โพสต์`,
-              embeds: posts.slice(0, 10).map((post) => ({
-              title: post.title || '(ไม่มีชื่อโพสต์)',
-              url: postUrl(post),
-              description: `เวลา: ${formatUtc7(post.createdAt) || '-'}`,
-              timestamp: post.createdAt,
-              })),
+              content: `มีโพสต์ใหม่ ${posts.length} และ listing ใหม่ ${listings.length} จาก **${creator.nickname}**`,
+              embeds: [
+                ...posts.map((post) => ({ title: post.title || '(ไม่มีชื่อโพสต์)', url: postUrl(post), description: `โพสต์ · ${formatUtc7(post.createdAt) || '-'}`, timestamp: post.createdAt })),
+                ...listings.map((listing) => ({ title: listing.name || '(ไม่มีชื่อ listing)', url: listingUrl(listing), description: `Listing · ${formatUtc7(listing.createdAt) || '-'}`, timestamp: listing.createdAt })),
+              ].slice(0, 10),
             }
           : event;
         deliveries.push({
@@ -131,7 +145,7 @@ export function createNotifier({
             `https://api.telegram.org/bot${telegramBotToken}/sendMessage`,
             {
               chat_id: telegramChatId,
-              text: telegramText(creator, posts),
+              text: telegramText(creator, posts, listings),
               link_preview_options: { is_disabled: true },
             },
             { fetchImpl, timeoutMs, targetName: 'Telegram', ipv4: true },

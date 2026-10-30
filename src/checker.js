@@ -5,6 +5,10 @@ export function findNewPosts(posts, seenPostIds) {
   return posts.filter((post) => post?.id && !seen.has(post.id));
 }
 
+function listingUrl(listing) {
+  return `https://ganknow.com/p/${encodeURIComponent(listing.slug)}`;
+}
+
 export function createChecker({
   nickname,
   postsPerPage,
@@ -24,7 +28,9 @@ export function createChecker({
     lastSuccessAt: null,
     lastError: null,
     latestPost: null,
+    latestListing: null,
     newPostsOnLastCheck: [],
+    newListingsOnLastCheck: [],
   };
 
   async function performCheck() {
@@ -42,20 +48,30 @@ export function createChecker({
       const previousState = await store.read();
       stage = 'posts lookup';
       const posts = await client.getLatestPosts(creator.id, postsPerPage);
+      stage = 'listings lookup';
+      const listings = await client.getLatestListings(creator.id, postsPerPage);
       const isFirstRun = previousState === null;
       const newPosts = isFirstRun && !notifyOnFirstRun
         ? []
         : findNewPosts(posts, previousState?.seenPostIds || []);
+      const listingBaseline = previousState?.seenListingIds;
+      const recentCutoff = Date.now() - 6 * 60 * 60 * 1000;
+      const newListings = isFirstRun && !notifyOnFirstRun
+        ? []
+        : listingBaseline === null || listingBaseline === undefined
+          ? listings.filter((listing) => new Date(listing.createdAt).getTime() >= recentCutoff)
+          : findNewPosts(listings, listingBaseline);
 
       // Notify before committing the new state so a failed webhook is retried.
       stage = 'notification';
-      await notifier.notify({ creator, posts: newPosts });
+      await notifier.notify({ creator, posts: newPosts, listings: newListings });
 
       const now = new Date().toISOString();
       stage = 'state write';
       await store.write({
         creator: { id: creator.id, nickname: creator.nickname },
         seenPostIds: posts.map((post) => post.id),
+        seenListingIds: listings.map((listing) => listing.id),
         lastCheckedAt: now,
       });
 
@@ -76,6 +92,15 @@ export function createChecker({
               url: `https://ganknow.com/post/${posts[0].id}`,
             }
           : null,
+        latestListing: listings[0]
+          ? {
+              id: listings[0].id,
+              title: listings[0].name,
+              createdAt: listings[0].createdAt,
+              createdAtUtc7: formatUtc7(listings[0].createdAt),
+              url: listingUrl(listings[0]),
+            }
+          : null,
         newPostsOnLastCheck: newPosts.map((post) => ({
           id: post.id,
           title: post.title,
@@ -83,10 +108,17 @@ export function createChecker({
           createdAtUtc7: formatUtc7(post.createdAt),
           url: `https://ganknow.com/post/${post.id}`,
         })),
+        newListingsOnLastCheck: newListings.map((listing) => ({
+          id: listing.id,
+          title: listing.name,
+          createdAt: listing.createdAt,
+          createdAtUtc7: formatUtc7(listing.createdAt),
+          url: listingUrl(listing),
+        })),
       };
 
       logger.info(
-        `[${formatUtc7(now)}] checked @${creator.nickname}: ${newPosts.length} new post(s)`,
+        `[${formatUtc7(now)}] checked @${creator.nickname}: ${newPosts.length} new post(s), ${newListings.length} new listing(s)`,
       );
       return status;
     } catch (error) {

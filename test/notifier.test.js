@@ -87,3 +87,22 @@ test('Telegram reports the network cause after retry fails', async () => {
     posts: [{ id: 'post-1', title: 'New', createdAt: '2026-10-30T08:09:29Z' }],
   }), /Telegram request failed: fetch failed \(ENETUNREACH\)/);
 });
+
+test('Telegram alert includes listing title and direct URL', async () => {
+  let body;
+  const notifier = createNotifier({
+    telegramBotToken: 'test-token',
+    telegramChatId: '123',
+    fetchImpl: async (_url, options) => {
+      body = JSON.parse(options.body);
+      return { ok: true, status: 200 };
+    },
+  });
+  await notifier.notify({
+    creator: { id: 'creator-1', nickname: 'yoichi69' },
+    posts: [],
+    listings: [{ id: 'listing-1', name: 'New listing', slug: 'new-listing', createdAt: '2026-10-30T08:04:05Z' }],
+  });
+  assert.match(body.text, /New listing/);
+  assert.match(body.text, /https:\/\/ganknow\.com\/p\/new-listing/);
+});
