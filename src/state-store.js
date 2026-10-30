@@ -9,6 +9,7 @@ export function createStateStore(filename) {
         const state = JSON.parse(contents);
         return {
           seenPostIds: Array.isArray(state.seenPostIds) ? state.seenPostIds : [],
+          seenListingIds: Array.isArray(state.seenListingIds) ? state.seenListingIds : null,
           lastCheckedAt: state.lastCheckedAt || null,
           creator: state.creator || null,
         };

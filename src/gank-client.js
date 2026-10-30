@@ -87,5 +87,25 @@ export function createGankClient({ fetchImpl = fetch, timeoutMs = 15_000 } = {})
       }
       return body.data;
     },
+
+    async getLatestListings(creatorId, perPage = 20) {
+      const params = new URLSearchParams({
+        userId: creatorId,
+        page: '1',
+        per_page: String(perPage),
+        isActive: 'true',
+        order_by: 'createdAt desc',
+      });
+      const body = await getJson(`${API_BASE_URL}/catalogs/services?${params}`, {
+        fetchImpl,
+        timeoutMs,
+        operation: 'listings lookup',
+      });
+      if (body?.data === null) return [];
+      if (!Array.isArray(body?.data)) {
+        throw new Error('Gank API returned an unexpected listings response');
+      }
+      return body.data;
+    },
   };
 }

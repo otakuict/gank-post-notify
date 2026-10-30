@@ -33,6 +33,23 @@ test('client builds the public posts request', async () => {
   assert.equal(requestedUrl.searchParams.get('orderBy'), 'createdAt desc');
 });
 
+test('client requests active listings newest first using Gank query names', async () => {
+  let requestedUrl;
+  const client = createGankClient({
+    fetchImpl: async (url) => {
+      requestedUrl = new URL(url);
+      return { ok: true, json: async () => ({ data: [] }) };
+    },
+  });
+
+  await client.getLatestListings('creator id', 12);
+  assert.equal(requestedUrl.pathname, '/v1/catalogs/services');
+  assert.equal(requestedUrl.searchParams.get('userId'), 'creator id');
+  assert.equal(requestedUrl.searchParams.get('per_page'), '12');
+  assert.equal(requestedUrl.searchParams.get('order_by'), 'createdAt desc');
+  assert.equal(requestedUrl.searchParams.get('isActive'), 'true');
+});
+
 test('client treats a null posts response as an empty creator feed', async () => {
   const client = createGankClient({
     fetchImpl: async () => ({ ok: true, json: async () => ({ data: null }) }),
