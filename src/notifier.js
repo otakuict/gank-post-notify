@@ -1,4 +1,5 @@
 import { formatUtc7 } from './time.js';
+import { request as httpsRequest } from 'node:https';
 
 function postUrl(post) {
   return `https://ganknow.com/post/${post.id}`;
@@ -23,16 +24,38 @@ function telegramText(creator, posts) {
   return lines.join('\n').slice(0, 4_096);
 }
 
-async function postJson(url, payload, { fetchImpl, timeoutMs, targetName }) {
+function postJsonIpv4(url, payload, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const request = httpsRequest(url, {
+      method: 'POST',
+      family: 4,
+      headers: { 'content-type': 'application/json' },
+      signal: AbortSignal.timeout(timeoutMs),
+    }, (response) => {
+      response.resume();
+      response.on('end', () => resolve({
+        ok: response.statusCode >= 200 && response.statusCode < 300,
+        status: response.statusCode,
+      }));
+      response.on('error', reject);
+    });
+    request.on('error', reject);
+    request.end(JSON.stringify(payload));
+  });
+}
+
+async function postJson(url, payload, { fetchImpl, timeoutMs, targetName, ipv4 = false }) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let response;
     try {
-      response = await fetchImpl(url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
+      response = ipv4 && fetchImpl === fetch
+        ? await postJsonIpv4(url, payload, timeoutMs)
+        : await fetchImpl(url, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(timeoutMs),
+        });
     } catch (error) {
       if (attempt === 0 && (error instanceof TypeError || error.name === 'TimeoutError')) {
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -111,7 +134,7 @@ export function createNotifier({
               text: telegramText(creator, posts),
               link_preview_options: { is_disabled: true },
             },
-            { fetchImpl, timeoutMs, targetName: 'Telegram' },
+            { fetchImpl, timeoutMs, targetName: 'Telegram', ipv4: true },
           ),
         });
       }
