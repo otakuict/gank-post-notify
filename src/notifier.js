@@ -24,15 +24,28 @@ function telegramText(creator, posts) {
 }
 
 async function postJson(url, payload, { fetchImpl, timeoutMs, targetName }) {
-  const response = await fetchImpl(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let response;
+    try {
+      response = await fetchImpl(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (error) {
+      if (attempt === 0 && (error instanceof TypeError || error.name === 'TimeoutError')) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        continue;
+      }
+      const code = error.cause?.code || error.cause?.errors?.map((item) => item.code).filter(Boolean).join(',');
+      throw new Error(`${targetName} request failed: ${error.message}${code ? ` (${code})` : ''}`, { cause: error });
+    }
 
-  if (!response.ok) {
-    throw new Error(`${targetName} returned HTTP ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`${targetName} returned HTTP ${response.status}`);
+    }
+    return;
   }
 }
 
