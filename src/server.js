@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { setDefaultResultOrder } from 'node:dns';
 import { loadEnvFile } from './load-env.js';
 import { loadConfig } from './config.js';
 import { createGankClient, getProfileNickname } from './gank-client.js';
@@ -6,6 +7,8 @@ import { createStateStore, stateFileForCreator } from './state-store.js';
 import { createNotifier } from './notifier.js';
 import { createChecker } from './checker.js';
 
+// K3s pods have IPv4 egress only. Telegram DNS can return IPv6 first.
+setDefaultResultOrder('ipv4first');
 loadEnvFile();
 const config = loadConfig();
 const nicknames = [...new Set(config.profiles.map(getProfileNickname))];
