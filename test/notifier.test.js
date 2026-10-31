@@ -26,6 +26,7 @@ test('Telegram alert sends chat id, post title, and post URL', async () => {
   assert.equal(requests[0].url, 'https://api.telegram.org/bottest-token/sendMessage');
   const body = JSON.parse(requests[0].options.body);
   assert.equal(body.chat_id, '-100123456');
+  assert.match(body.text, /1\. 🆕 🚨 \[โพสต์\] A new post/);
   assert.match(body.text, /A new post/);
   assert.match(body.text, /2026-09-16 07:00:00 \(UTC\+7\)/);
   assert.match(body.text, /https:\/\/ganknow\.com\/post\/post-1/);
@@ -104,6 +105,7 @@ test('Telegram alert includes listing title and direct URL', async () => {
     listings: [{ id: 'listing-1', name: 'New listing', slug: 'new-listing', createdAt: '2026-10-30T08:04:05Z' }],
   });
   assert.match(body.text, /New listing/);
+  assert.match(body.text, /1\. 🔧🔧 \[listing\] New listing/);
   assert.match(body.text, /https:\/\/ganknow\.com\/services\/new-listing/);
 });
 

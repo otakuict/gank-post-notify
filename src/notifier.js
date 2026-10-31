@@ -13,12 +13,12 @@ function telegramText(creator, posts, listings) {
   ];
 
   const items = [
-    ...posts.map((post) => ({ type: 'โพสต์', title: post.title, createdAt: post.createdAt, url: postUrl(post) })),
-    ...listings.map((listing) => ({ type: 'listing', title: listing.name, createdAt: listing.createdAt, url: listingUrl(listing) })),
+    ...posts.map((post) => ({ type: 'โพสต์', icon: '🆕 🚨', title: post.title, createdAt: post.createdAt, url: postUrl(post) })),
+    ...listings.map((listing) => ({ type: 'listing', icon: '🔧🔧', title: listing.name, createdAt: listing.createdAt, url: listingUrl(listing) })),
   ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   for (const [index, item] of items.slice(0, 10).entries()) {
-    lines.push(`${index + 1}. [${item.type}] ${item.title || '(ไม่มีชื่อ)'}`);
+    lines.push(`${index + 1}. ${item.icon} [${item.type}] ${item.title || '(ไม่มีชื่อ)'}`);
     const localTime = formatUtc7(item.createdAt);
     if (localTime) lines.push(`เวลา: ${localTime}`);
     lines.push(item.url);
