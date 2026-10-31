@@ -1,12 +1,9 @@
 import { formatUtc7 } from './time.js';
+import { listingUrl } from './urls.js';
 
 export function findNewPosts(posts, seenPostIds) {
   const seen = new Set(seenPostIds);
   return posts.filter((post) => post?.id && !seen.has(post.id));
-}
-
-function listingUrl(listing) {
-  return `https://ganknow.com/p/${encodeURIComponent(listing.slug)}`;
 }
 
 export function createChecker({

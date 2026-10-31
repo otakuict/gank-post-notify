@@ -116,6 +116,8 @@ test('existing post state backfills only recent listings once', async () => {
 
   const first = await checker.check();
   assert.deepEqual(first.newListingsOnLastCheck.map((item) => item.id), ['new-listing']);
+  assert.equal(first.latestListing.url, 'https://ganknow.com/services/new-listing');
+  assert.equal(first.newListingsOnLastCheck[0].url, 'https://ganknow.com/services/new-listing');
   assert.deepEqual(notifications[0].listings.map((item) => item.id), ['new-listing']);
   assert.deepEqual(saved.seenListingIds, ['new-listing', 'old-listing']);
   const second = await checker.check();

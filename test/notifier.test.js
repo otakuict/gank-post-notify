@@ -104,5 +104,25 @@ test('Telegram alert includes listing title and direct URL', async () => {
     listings: [{ id: 'listing-1', name: 'New listing', slug: 'new-listing', createdAt: '2026-10-30T08:04:05Z' }],
   });
   assert.match(body.text, /New listing/);
-  assert.match(body.text, /https:\/\/ganknow\.com\/p\/new-listing/);
+  assert.match(body.text, /https:\/\/ganknow\.com\/services\/new-listing/);
+});
+
+test('generic webhook and Discord embed use the same listing URL', async () => {
+  for (const webhookType of ['generic', 'discord']) {
+    let payload;
+    const notifier = createNotifier({
+      webhookUrl: 'https://hooks.example.test/gank',
+      webhookType,
+      fetchImpl: async (_url, options) => {
+        payload = JSON.parse(options.body);
+        return { ok: true, status: 200 };
+      },
+    });
+    await notifier.notify({
+      creator: { id: 'creator-1', nickname: 'baemonfan' },
+      listings: [{ id: 'listing-1', name: 'New listing', slug: 'new-listing', createdAt: '2026-10-30T08:04:05Z' }],
+    });
+    const url = webhookType === 'discord' ? payload.embeds[0].url : payload.listings[0].url;
+    assert.equal(url, 'https://ganknow.com/services/new-listing');
+  }
 });

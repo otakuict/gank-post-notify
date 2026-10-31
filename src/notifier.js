@@ -1,12 +1,9 @@
 import { formatUtc7 } from './time.js';
+import { listingUrl } from './urls.js';
 import { request as httpsRequest } from 'node:https';
 
 function postUrl(post) {
   return `https://ganknow.com/post/${post.id}`;
-}
-
-function listingUrl(listing) {
-  return `https://ganknow.com/p/${encodeURIComponent(listing.slug)}`;
 }
 
 function telegramText(creator, posts, listings) {
